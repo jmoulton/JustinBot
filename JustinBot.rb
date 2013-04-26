@@ -75,22 +75,12 @@ class JustinBot
 
   def pass_cards
      cards_to_pass = []
-     for i in 0..2 do
+     (0..2).each do
        cards_to_pass << highest_card
        @hand.delete(highest_card)
      end
 
      return cards_to_pass
-  end
-
-  def highest_club
-     clubs = @hand.select { |card| card.suit == AgentVsAgent::Suit::CLUBS }
-     return clubs.max
-  end
-
-  def highest_heart
-    hearts = @hand.select { |card| card.suit == AgentVsAgent::Suit::HEARTS }
-    return hearts.max
   end
 
   def highest_card
@@ -99,30 +89,10 @@ class JustinBot
     return @hand.detect{|card| card.rank == ranks.max }
   end
 
-  def lowest_card
+  def lowest_card suitable_cards
     ranks = []
-    @hand.each { |card| ranks << card.rank }
-    return @hand.detect{|card| card.rank == ranks.min }
-  end
-
-  def has_hearts?
-     hearts = @hand.select { |card| card.suit == AgentVsAgent::Suit::HEARTS }
-     return !hearts.empty?
-  end
-
-  def has_diamonds?
-     diamonds = @hand.select { |card| card.suit == AgentVsAgent::Suit::DIAMONDS }
-     return !diamonds.empty?
-  end
-
-  def has_spades?
-     spades = @hand.select { |card| card.suit == AgentVsAgent::Suit::SPADES }
-     return !spades.empty?
-  end
-
-  def has_clubs?
-     clubs = @hand.select { |card| card.suit == AgentVsAgent::Suit::CLUBS }
-     return !clubs.empty?
+    suitable_cards.each { |card| ranks << card.rank }
+    return suitable_cards.detect{|card| card.rank == ranks.max }
   end
 
   def have_the_queen?
@@ -136,12 +106,26 @@ class JustinBot
 
   def play_matching_suit(suit)
     suitable_cards = @hand.select{|card| card.suit == suit }
-    return suitable_cards.first
+    return lowest_card suitable_cards
+  end
+
+  def play_lead_card
+    suitable_cards = @hand
+    unless @@hearts_been_broken
+      suitable_cards.reject!{ |card| card.suit == AgentVsAgent::Suit::HEARTS }
+    end
+
+    return lowest_card suitable_cards
   end
 
   def play_trick
     puts "[#{@game_info.position}, round #{@round_number}, trick #{@trick_number}, playing trick"
     puts "#{@hand.inspect}"
+
+    clubs = @hand.select { |card| card.suit == AgentVsAgent::Suit::CLUBS }
+    hearts = @hand.select { |card| card.suit == AgentVsAgent::Suit::HEARTS }
+    spades = @hand.select { |card| card.suit == AgentVsAgent::Suit::SPADES }
+    diamonds = @hand.select { |card| card.suit == AgentVsAgent::Suit::DIAMONDS }
 
     trick = @game.get_trick @ticket
     puts "Leading the trick #{@game_info.inspect}, #{trick.inspect}" if @game_info.position == trick.leader
@@ -151,25 +135,25 @@ class JustinBot
       if @trick_number == 0 && two_clubs = @hand.detect{|card| card.suit == AgentVsAgent::Suit::CLUBS && card.rank == AgentVsAgent::Rank::TWO }
         puts "playing two of clubs"
         card_to_play = two_clubs
-      elsif @trick_number == 0 && has_clubs?
+      elsif @trick_number == 0 && !clubs.empty?
         puts "playing highest club"
-        card_to_play = highest_club
+        card_to_play = clubs.max
       elsif trick.played[0] && @hand.detect{|card| card.suit == trick.played[0].suit}
         puts "playing matching suit"
         card_to_play = play_matching_suit(trick.played[0].suit)
       else
-        if have_the_queen? && !trick.played[0].nil?
+        if have_the_queen? && !trick.played[0].nil? && @trick_number == 0
           puts "playing queen of spades"
           card_to_play = drop_queen
-        elsif has_hearts? && !trick.played[0].nil?
+        elsif !hearts.empty? && !trick.played[0].nil?
           puts "playing highest heart"
-          card_to_play = highest_heart
+          card_to_play = hearts.max
         elsif !trick.played[0].nil?
           puts "playing highest card"
           card_to_play = highest_card
         else
-          puts "playing lowest card"
-          card_to_play = lowest_card
+          puts "playing leading card"
+          card_to_play = play_lead_card
         end
       end
     else
@@ -180,7 +164,7 @@ class JustinBot
     puts "[#{@game_info.position}] playing card: #{card_to_play.inspect}"
     trick_result = @game.play_card @ticket, card_to_play
     unless @@hearts_been_broken
-      trick_result.played.each { |card| @@hearts_been_broken = true if card.suit == AgentVsAgent::Suit::HEARTS }
+      trick_result.played.each { |card| @@hearts_been_broken = true; puts "HEART BROKEN" if card.suit == AgentVsAgent::Suit::HEARTS }
     end
     puts "trick result: #{trick_result.inspect}"
   end
