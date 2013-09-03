@@ -2,6 +2,8 @@ require 'thrift'
 $:.unshift File.dirname(__FILE__) + '/lib'
 require 'hearts'
 
+# Kris Local
+#socket = Thrift::Socket.new('kemper.local', 4001)
 socket = Thrift::Socket.new('127.0.0.1', 4001)
 transport = Thrift::FramedTransport.new(socket)
 protocol = Thrift::BinaryProtocol.new(transport)
@@ -12,6 +14,28 @@ class JustinBot
 
   def initialize game
     @game = game
+
+    #shothand ranks
+    @ace = AgentVsAgent::Rank::ACE
+    @king = AgentVsAgent::Rank::KING
+    @queen = AgentVsAgent::Rank::QUEEN
+    @jack = AgentVsAgent::Rank::JACK
+    @ten = AgentVsAgent::Rank::TEN
+    @nine = AgentVsAgent::Rank::NINE
+    @eight = AgentVsAgent::Rank::EIGHT
+    @seven = AgentVsAgent::Rank::SEVEN
+    @six = AgentVsAgent::Rank::SIX
+    @five = AgentVsAgent::Rank::FIVE
+    @four = AgentVsAgent::Rank::FOUR
+    @three = AgentVsAgent::Rank::THREE
+    @two = AgentVsAgent::Rank::TWO
+
+    #shorthand suits
+    @heart = AgentVsAgent::Suit::HEARTS
+    @diamond = AgentVsAgent::Suit::DIAMONDS
+    @spade = AgentVsAgent::Suit::SPADES
+    @club = AgentVsAgent::Suit::CLUBS
+
   end
 
   def run
@@ -63,9 +87,7 @@ class JustinBot
   end
 
   def break_hearts
-    puts "************************"
-    puts "****BREAKING HEARTS*****"
-    puts "************************"
+    puts "************BREAKING HEARTS***************"
     @hearts_been_broken = true
   end
 
@@ -82,29 +104,37 @@ class JustinBot
   end
 
   def determine_cards_to_pass
-    #clubs = @hand.select { |card| card.suit == AgentVsAgent::Suit::CLUBS }
-    #hearts = @hand.select { |card| card.suit == AgentVsAgent::Suit::HEARTS }
-    spades = @hand.select { |card| card.suit == AgentVsAgent::Suit::SPADES }
-    #diamonds = @hand.select { |card| card.suit == AgentVsAgent::Suit::DIAMONDS }
+    clubs = @hand.select { |card| card.suit == @club }
+    hearts = @hand.select { |card| card.suit == @heart }
+    spades = @hand.select { |card| card.suit == @spade }
+    diamonds = @hand.select { |card| card.suit == @diamond }
 
-    if have_the_queen? && spades.count < 5
-      queen = @hand.detect{|card| card.suit == AgentVsAgent::Suit::SPADES && card.rank == AgentVsAgent::Rank::QUEEN }
+    if have_the_queen? && spades.count < 4
+      queen = @hand.detect{|card| card.suit == @spade && card.rank == @queen }
       return queen
     end
 
-    if ace_of_spades = @hand.detect{|card| card.suit == AgentVsAgent::Suit::SPADES && card.rank == AgentVsAgent::Rank::ACE }
+    if ace_of_spades = @hand.detect{|card| card.suit == @spade && card.rank == @ace }
       return ace_of_spades
     end
 
-    if king_of_spades = @hand.detect{|card| card.suit == AgentVsAgent::Suit::SPADES && card.rank == AgentVsAgent::Rank::KING }
+    if king_of_spades = @hand.detect{|card| card.suit == @spade && card.rank == @king }
       return king_of_spades
     end
 
-    if two_clubs = @hand.detect{|card| card.suit == AgentVsAgent::Suit::CLUBS && card.rank == AgentVsAgent::Rank::TWO }
+    if two_clubs = @hand.detect{|card| card.suit == @club && card.rank == @two }
       return two_clubs
     end
 
-    return highest_card @hand
+    if hearts.any? && hearts.count < 4
+      return highest_card hearts
+    elsif clubs.any? && clubs.count < 3
+      return highest_card clubs
+    elsif diamonds.any? && diamonds.count < 3
+      return highest_card diamonds
+    else
+      return highest_card @hand
+    end
 
   end
 
@@ -123,22 +153,23 @@ class JustinBot
   end
 
   def have_the_queen?
-    queen = @hand.detect{|card| card.suit == AgentVsAgent::Suit::SPADES && card.rank == AgentVsAgent::Rank::QUEEN }
+    queen = @hand.detect{|card| card.suit == @spade && card.rank == @queen }
     return !queen.nil?
   end
 
   def drop_queen
-    return @hand.detect{|card| card.suit == AgentVsAgent::Suit::SPADES && card.rank == AgentVsAgent::Rank::QUEEN }
+    return @hand.detect{|card| card.suit == @spade && card.rank == @queen }
   end
 
   def play_matching_suit(suit, trick)
     suitable_cards = @hand.select{|card| card.suit == suit }
 
-    if trick.played[2] && (!trick.played.detect {|card| card.suit == AgentVsAgent::Suit::SPADES && card.rank == AgentVsAgent::Rank::QUEEN } && !trick.played.detect {|card| card.suit == AgentVsAgent::Suit::HEARTS } )
+    if trick.played[2] && (!trick.played.detect {|card| card.suit == @spade && card.rank == @queen } && 
+                           !trick.played.detect {|card| card.suit == @heart})
       return highest_card suitable_cards
     end
 
-    if trick.played.detect {|card| card.suit == AgentVsAgent::Suit::SPADES && card.rank == AgentVsAgent::Rank::QUEEN }
+    if trick.played.detect {|card| card.suit == @spade && card.rank == @queen }
       return lowest_card suitable_cards
     end
 
@@ -146,12 +177,25 @@ class JustinBot
   end
 
   def play_lead_card
+    clubs = @hand.select { |card| card.suit == @club }
+    diamonds = @hand.select { |card| card.suit == @diamond }
+
     suitable_cards = @hand
+
     unless @hearts_been_broken
-      suitable_cards = suitable_cards.reject{ |card| card.suit == AgentVsAgent::Suit::HEARTS }
+      suitable_cards = suitable_cards.reject{ |card| card.suit == @heart }
       if suitable_cards.empty?
         puts "playing hearts anyways"
         suitable_cards = @hand
+      end
+    end
+
+    if @trick_number < 4
+      if diamonds.any? && diamonds.count < 2
+        return lowest_card diamonds
+      end
+      if clubs.any? && clubs.count < 2
+        return lowest_card clubs
       end
     end
 
@@ -163,17 +207,17 @@ class JustinBot
     puts "#{@hand.inspect}"
     puts "#{@hand.size}"
 
-    clubs = @hand.select { |card| card.suit == AgentVsAgent::Suit::CLUBS }
-    hearts = @hand.select { |card| card.suit == AgentVsAgent::Suit::HEARTS }
-    #spades = @hand.select { |card| card.suit == AgentVsAgent::Suit::SPADES }
-    #diamonds = @hand.select { |card| card.suit == AgentVsAgent::Suit::DIAMONDS }
+    clubs = @hand.select { |card| card.suit == @club }
+    hearts = @hand.select { |card| card.suit == @heart }
+    #spades = @hand.select { |card| card.suit == @spade }
+    #diamonds = @hand.select { |card| card.suit == @diamond }
 
     trick = @game.get_trick @ticket
     puts "Leading the trick #{@game_info.inspect}, #{trick.inspect}" if @game_info.position == trick.leader
     puts "current trick: #{trick.inspect}"
 
     #initial round
-    if @trick_number == 0 && two_clubs = @hand.detect{|card| card.suit == AgentVsAgent::Suit::CLUBS && card.rank == AgentVsAgent::Rank::TWO }
+    if @trick_number == 0 && two_clubs = @hand.detect{|card| card.suit == @club && card.rank == @two }
       puts "playing two of clubs"
       card_to_play = two_clubs
       #initial round but does not have 2
@@ -188,12 +232,12 @@ class JustinBot
       if have_the_queen? && !trick.played[0].nil? && @trick_number != 0
         puts "playing queen of spades"
         card_to_play = drop_queen
-      elsif !hearts.empty? && !trick.played[0].nil?
+      elsif !hearts.empty? && !trick.played[0].nil? && @trick_number != 0
         puts "playing highest heart"
         card_to_play = hearts.max
       elsif !trick.played[0].nil?
         puts "playing highest card"
-        card_to_play = highest_card @hand.reject{|card| card.suit == trick.played[0].suit}
+        card_to_play = highest_card @hand.reject{|card| card.suit == @heart}
 
       else
         puts "playing leading card"
@@ -204,9 +248,7 @@ class JustinBot
     @hand.delete(card_to_play)
     puts "[#{@game_info.position}] playing card: #{card_to_play.inspect}"
     trick_result = @game.play_card @ticket, card_to_play
-    unless @hearts_been_broken
-      break_hearts if trick.played.detect{ |card| card.suit == AgentVsAgent::Suit::HEARTS }
-    end
+    break_hearts if trick_result.played.detect{ |card| card.suit == @heart || card_to_play.suit == @heart }
     puts "trick result: #{trick_result.inspect}"
   end
 end
@@ -219,4 +261,6 @@ bot.run
 transport.close
 
 puts "Finished"
+puts "#{@game_info.position}"
+
 
