@@ -126,6 +126,8 @@ class JustinBot
       return two_clubs
     end
 
+    #Empty ut suites
+
     if hearts.any? && hearts.count < 4
       return highest_card hearts
     elsif clubs.any? && clubs.count < 3
@@ -209,26 +211,43 @@ class JustinBot
 
     clubs = @hand.select { |card| card.suit == @club }
     hearts = @hand.select { |card| card.suit == @heart }
-    #spades = @hand.select { |card| card.suit == @spade }
-    #diamonds = @hand.select { |card| card.suit == @diamond }
 
     trick = @game.get_trick @ticket
     puts "Leading the trick #{@game_info.inspect}, #{trick.inspect}" if @game_info.position == trick.leader
     puts "current trick: #{trick.inspect}"
 
-    #initial round
+      #initial round
+
     if @trick_number == 0 && two_clubs = @hand.detect{|card| card.suit == @club && card.rank == @two }
       puts "playing two of clubs"
       card_to_play = two_clubs
+
       #initial round but does not have 2
+
     elsif @trick_number == 0 && !clubs.empty?
       puts "playing highest club"
       card_to_play = clubs.max
-      #matching suit
+
+      #Initial round and do not have a club
+
+    elsif @trick_number == 0 && clubs.empty?
+      puts "playing highest non-club nor point card"
+      suitable_hand = @hand.reject{|card| card.suit == @heart}
+      suitable_hand = suitable_hand.reject{|card| card.suit == @spade && card.rank == @queen}
+      card_to_play = highest_card suitable_hand
+
+      #Playing Matching Suit
+
     elsif trick.played[0] && @hand.detect{|card| card.suit == trick.played[0].suit}
       puts "playing matching suit"
       card_to_play = play_matching_suit(trick.played[0].suit, trick)
+
+      #Playing Off Suit
+
     else
+
+      #Not Leading Card
+
       if have_the_queen? && !trick.played[0].nil? && @trick_number != 0
         puts "playing queen of spades"
         card_to_play = drop_queen
@@ -238,6 +257,8 @@ class JustinBot
       elsif !trick.played[0].nil?
         puts "playing highest card"
         card_to_play = highest_card @hand.reject{|card| card.suit == @heart}
+
+        #Leading Card
 
       else
         puts "playing leading card"
